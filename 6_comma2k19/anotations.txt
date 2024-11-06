@@ -1,0 +1,50 @@
+    # ================== Image annotations ==================
+    annotations = camera_center_cyl['poly2d-detectron-undistort'][index].raw['data']
+    timestamp = camera_center_cyl['poly2d-detectron-undistort'][index].raw["timestamp"]*1000
+    delay_ms = -300
+    timestamp_ns = int(timestamp) + delay_ms * 1000000
+    timestep_sec = timestamp_ns // 1_000_000_000 
+    timestep_nsec = timestamp_ns % 1_000_000_000
+    points = []
+    for annotation in annotations:
+      polygon = annotation[0] 
+      point_annotation = {
+                "timestamp": {"sec": timestep_sec, "nsec": timestep_nsec},
+                "type" : 3,
+                "points" : [{"x": np.float64(point[0]), "y": np.float64(point[1])} for point in polygon],
+                #"outline_color": {"r": 1.0, "g": 0.0, "b": 0.0, "a": 0.5},
+                "outline_colors":[colors_dict.get(point[0], {"r": 0.0, "g": 1.0, "b": 0.0, "a": 1.0})  for point in polygon],
+                "fill_color": {"r": 1.0, "g": 0.0, "b": 0.0, "a": 0.01},
+                "thickness" : 5,
+              }
+      #print(json.dumps(point_annotation,indent=2))
+      points.append(point_annotation)
+      
+    annotation_message = {
+                
+                "points" : points
+            }
+    
+    writer.add_message(
+                      channel_id=annotation_id,
+                      log_time=timestamp_ns,
+                      data=json.dumps(annotation_message).encode('utf-8'),
+                      publish_time=timestamp_ns,
+                    ) 
+    print(index)
+
+
+
+    # Image annotations
+annotation_schema = open_json_schema("json_schemas/ImageAnnotations.json")
+annotation_schema_id = writer.register_schema(
+        name="foxglove.ImageAnnotations",
+        encoding="jsonschema",
+        data=json.dumps(annotation_schema).encode(),
+    )
+
+annotation_id = writer.register_channel(
+    schema_id=annotation_schema_id,
+    topic="cyl_img_annotations",
+    message_encoding="json",
+)
